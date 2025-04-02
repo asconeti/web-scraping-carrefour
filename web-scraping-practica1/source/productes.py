@@ -1,64 +1,36 @@
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from bs4 import BeautifulSoup
 import time
-def get_category_url(path_sortida):
-    """
-    Obté les URL de categories de productes des de Carrefour Supermercado,
-    excloent "Mis productos" i "Ofertas", i les desa a un fitxer .txt.
-    
-    Requereix:
-        - Selenium
-        - BeautifulSoup
-        - Driver de Chrome instal·lat al PATH
-    
-    Paràmetres:
-        path_sortida (str): ruta del fitxer de sortida .txt
-    """
 
-    # Configura el navegador sense interfície gràfica
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-    
-    # Inicialitza el navegador
-    driver = webdriver.Chrome(options=chrome_options)
-    
-    try:
-        print("🌐 Navegant a Carrefour...")
-        driver.get("https://www.carrefour.es/supermercado")
-        time.sleep(5)  # espera perquè carregui tot
+# 🧠 Configura opcions de Chrome
+options = Options()
+options.add_argument("--headless")  # Si no vols veure el navegador (treball en contenidors)
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
 
-        html = driver.page_source
-        soup = BeautifulSoup(html, 'html.parser')
+# 🔒 Afegim un User-Agent per simular un navegador real
+options.add_argument(
+    "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/122.0.0.0 Safari/537.36"
+)
 
-        # Busquem tots els <a> de la navegació de categories
-        links = soup.select("a.nav-first-level-categories__list-element")
+# 🧭 Path manual al driver (canvia si el tens en un altre lloc)
+service = Service("/usr/bin/chromedriver")
 
-        categories = []
-        for a in links:
-            nom = a.get_text(strip=True)
-            href = a.get("href")
-            if nom.lower() not in ["mis productos", "ofertas"]:
-                categories.append(f"{nom} → {href}")
+# 🚀 Iniciem el navegador
+driver = webdriver.Chrome(service=service, options=options)
 
-        # Guarda resultats
-        with open(path_sortida, "w", encoding="utf-8") as f:
-            for linia in categories:
-                f.write(linia + "\n")
+# 🌐 Visitem la web
+url = "https://www.carrefour.es/supermercado"
+driver.get(url)
 
-        print(f"✅ {len(categories)} categories desades a: {path_sortida}")
-    
-    except Exception as e:
-        print("⚠️ Error:", e)
-    
-    finally:
-        driver.quit()
-        print("🚪 Tancant el navegador.")
+# ⏱️ Esperem que carregui completament
+time.sleep(5)
 
-# Exemple d'ús
-get_category_url("web-scraping-practica1/data/categories.txt")
+# 🖨️ Mostrem el títol per comprovar l'accés
+print("Títol de la pàgina:", driver.title)
+
+# ✅ Tanquem el navegador
+driver.quit()
