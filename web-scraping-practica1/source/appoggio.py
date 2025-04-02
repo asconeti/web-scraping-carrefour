@@ -31,13 +31,12 @@ def processa_htmls(path_entrada, path_sortida):
             print(f"✅ Guardat: {ruta_sortida}")
 
 
-
 #####FUNCIO###########################
 
 
 def extreu_filtres_de_categories(carpeta_entrada, carpeta_sortida):
     """
-    Itera per tots els fitxers .txt d’una carpeta, analitza el seu contingut HTML i extreu els filtres
+    Itera per tots els fitxers .txt d'una carpeta, analitza el seu contingut HTML i extreu els filtres
     en format "etiqueta → URL", desant els resultats en fitxers .txt dins una altra carpeta.
 
     Paràmetres:
