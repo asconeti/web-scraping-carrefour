@@ -9,6 +9,15 @@ import requests
 
 
 def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
+    """
+    Aquesta funció navega dins una categoria de Carrefour, recorre totes les pàgines de productes
+    (evitant els productes en "carousel"), i extreu les dades desitjades de cada producte:
+    - Catàleg, categoria, descripció, preu unitari, preu/kg, promocions, URL i foto del producte.
+
+    Guarda el DataFrame final en un arxiu CSV i descarrega les imatges a /data_scraped/media.
+    """
+
+    # 🔧 Configura Selenium
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
@@ -22,8 +31,8 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
 
     productes = []
     errors = 0
-    errors_info = []
     productes_llegits = 0
+    max_intents = 3
     pagina = 1
 
     try:
@@ -47,12 +56,12 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
                 try:
                     parent = li.select_one(".product-card__parent") or li.select_one(".product-card-list__lazy-card")
                     if not parent:
-                        raise Exception("Producte sense contenidor vàlid")
+                        raise Exception("Producte sense contenidor .product-card__parent")
 
                     cataleg = parent.get("catalog", "")
 
                     titol_tag = li.select_one(".product-card__title-link")
-                    descripcio = titol_tag.get_text(strip=True) if titol_tag else "Sense títol"
+                    descripcio = titol_tag.get_text(strip=True) if titol_tag else ""
 
                     preu_tag = li.select_one(".product-card__price")
                     preu_unitari = preu_tag.get_text(strip=True) if preu_tag else ""
@@ -77,7 +86,7 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
                             img_data = requests.get(url_imatge).content
                             with open(imatge_path, "wb") as handler:
                                 handler.write(img_data)
-                        except Exception:
+                        except:
                             pass
 
                     productes.append({
@@ -94,11 +103,9 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
 
                 except Exception as e:
                     errors += 1
-                    nom = li.select_one(".product-card__title-link")
-                    nom_text = nom.get_text(strip=True) if nom else "No identificat"
-                    errors_info.append(f"{nom_text} → {str(e)}")
-                    print(f"⚠️ Error amb un producte: {nom_text} → {e}")
+                    print(f"⚠️ Error amb un producte: {e}")
 
+            # Paginació
             pagination = soup.select_one(".pagination")
             if pagination and f"offset={pagina * 24}" in str(pagination):
                 pagina += 1
@@ -108,28 +115,17 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
     finally:
         driver.quit()
 
+    # Guarda DataFrame
     df = pd.DataFrame(productes)
     os.makedirs("data_scraped", exist_ok=True)
     df.to_csv("data_scraped/mercadona_food_products.csv", index=False)
 
-    # 🔽 Guarda errors en fitxer log
-    if errors_info:
-        with open("data_scraped/errors_log.txt", "w", encoding="utf-8") as f:
-            for linia in errors_info:
-                f.write(linia + "\n")
-
     print(f"\n✅ Total productes capturats: {len(productes)}")
-    print(f"⚠️ Total productes amb error: {errors} (consulta data_scraped/errors_log.txt)")
+    print(f"⚠️ Total productes amb error: {errors}")
 
     return df
 
 
 
-
-
-
-
-
-
-url = "https://www.carrefour.es/supermercado/congelados/cat21449123/c"
+url = "https://www.carrefour.es/supermercado/productos-frescos/cat20002/c"
 df = scrape_categoria_carrefour(url)

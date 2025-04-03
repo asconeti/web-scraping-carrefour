@@ -3,5 +3,5 @@
 # git branch
 # git status
 # git add .
-# git commit -m "Afegeixo el script amb Selenium configurat per accedir a Carrefour Rev1"
+# git commit -m "Organitzo projecte modular"
 # git push origin jordi
