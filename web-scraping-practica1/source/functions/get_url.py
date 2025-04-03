@@ -6,10 +6,11 @@ import time
 import os
 import sys
 
+
 # Afegeix el directori arrel al Python Path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-def get_category_url():
+def get_url_categories():
     """
     Accedeix a la pàgina de Carrefour Supermercado, extreu les categories de productes
     (excloent "Mis productos" i "Ofertas") i retorna un diccionari amb el format:
@@ -24,34 +25,39 @@ def get_category_url():
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    # utilitzem un user-agent per evitar bloquejos
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                         "AppleWebKit/537.36 (KHTML, like Gecko) "
-                         "Chrome/122.0.0.0 Safari/537.36")
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    )
 
-    # Indica a Selenium on està ubicat el binari del chromedriver dins del sistema operatiu
-    #  (en aquest cas dins del contenidor Linux).
     service = Service("/usr/bin/chromedriver")
     driver = webdriver.Chrome(service=service, options=options)
 
-    # Diccionari per emmagatzemar categories i URLs
     resultats = {}
     domini = "https://www.carrefour.es"
 
     try:
-        print("🌐 Accedint a Carrefour...")
-        # Petició a la pàgina de Carrefour Supermercado. Carreguem completament la pàgina
-        # damunt de l'objecte driver.
-        driver.get("https://www.carrefour.es/supermercado")
-        time.sleep(5)  # espera que carregui
+        print("🌐 Accedint a https://www.carrefour.es/supermercado...")
 
-        # Obtenim el contingut HTML complet de la pàgina
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        # Selecciona els enllaços de categoria, aquest selector CSS selecciona
-        # tots els elements <a> que tenen la classe CSS "nav-first-level-categories__list-element".
-        links = soup.select("a.nav-first-level-categories__list-element")
+        # Fins a 5 intents per obtenir els links
+        links = []
+        for intent in range(5):
+            driver.get("https://www.carrefour.es/supermercado")
+            time.sleep(0 + intent * 2)  # Espera progressiva
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            links = soup.select("a.nav-first-level-categories__list-element")
 
-        # Desa les categories i URLs en un diccionari
+            if links:
+                print(f"✅ Enllaços trobats en l'intent {intent+1}")
+                break
+            else:
+                print(f"❌ No s'han trobat enllaços (intent {intent+1}), tornant a intentar...")
+
+        if not links:
+            print("⚠️ No s'han pogut obtenir els enllaços de categories després de 5 intents.")
+            return {}
+
         for a in links:
             nom = a.get_text(strip=True)
             href = a.get("href")
@@ -69,6 +75,7 @@ def get_category_url():
 
     return resultats
 
+
 ##################################
 
 # Aquest bloc s'executa només quan el fitxer on està definit és
@@ -80,12 +87,12 @@ def get_category_url():
 if __name__ == "__main__":
     # Comprova que s'ha passat el nombre correcte d'arguments
     if len(sys.argv) != 1:
-        print("Ús: python source/functions/url_categories.py\n")
+        print("Ús: python source/functions/get_url.py\n")
         sys.exit(1)
 
     # Executa la funció principal
     try:
-        get_category_url()
+        get_url_categories()
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
