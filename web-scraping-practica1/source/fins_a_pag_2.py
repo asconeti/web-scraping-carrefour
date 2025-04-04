@@ -29,9 +29,9 @@ def capta_url_seguent_pagina(soup) -> str:
     Captura la URL de la següent pàgina a partir del BeautifulSoup de la pàgina actual.
     Retorna la URL de la següent pàgina o None si no hi ha més pàgines.
     """
-    next_page = soup.select_one("#app > div > main > div.plp-food-view__main > div.plp-food-view__container > div > div.plp-food-view__list > div.plp-food-view__results-list-container > div.plp-food-view__pagination > div > div.pagination__container > div > a")
-    if next_page and next_page.get("href"):
-        next_page_url = f"https://www.carrefour.es{next_page.get('href')}"
+    next_page_link = soup.find("link", {"rel": "next"})
+    if next_page_link and next_page_link.get("href"):
+        next_page_url = next_page_link.get("href")
         print(f"➡️ Capturada la URL de la següent pàgina: {next_page_url}")
         return next_page_url
     else:
@@ -99,7 +99,7 @@ def guardar_html_debug(soup, pagina):
     with open(fitxer_path, "w", encoding="utf-8") as fitxer:
         fitxer.write(soup.prettify())
     print(f"📝 HTML de la pàgina {pagina} guardat a {fitxer_path}")
-
+    print(url)
 
 # Inicia el bucle iteratiu extern
 url = "https://www.carrefour.es/supermercado/productos-frescos/cat20002/c"
