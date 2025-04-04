@@ -3,5 +3,5 @@
 # git branch
 # git status
 # git add .
-# git commit -m "Començant a guardar productes d'una Url..."
+# git commit -m "Guardem productes primera Url..."
 # git push origin jordi
