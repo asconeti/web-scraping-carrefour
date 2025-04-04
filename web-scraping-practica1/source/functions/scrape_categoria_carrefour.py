@@ -1,3 +1,6 @@
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -10,20 +13,14 @@ import requests
 
 def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
     """
-    Aquesta funció navega dins una categoria de Carrefour, recorre totes les pàgines de productes
-    (evitant els productes en "carousel"), i extreu les dades desitjades de cada producte:
-    - Catàleg, categoria, descripció, preu unitari, preu/kg, promocions, URL i foto del producte.
-
-    Guarda el DataFrame final en un arxiu CSV i descarrega les imatges a /data_scraped/media.
+    Aquesta funció navega dins una categoria de Carrefour, assegura que tot el contingut es carrega amb scroll repetitiu,
+    espera explícita, i afegeix el link de la web del producte al DataFrame final.
     """
-
-    # 🔧 Configura Selenium
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-
     service = Service("/usr/bin/chromedriver")
     driver = webdriver.Chrome(service=service, options=options)
 
@@ -32,16 +29,34 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
     productes = []
     errors = 0
     productes_llegits = 0
-    max_intents = 3
     pagina = 1
 
     try:
         while True:
             url_pagina = url_categoria if pagina == 1 else f"{url_categoria}?offset={(pagina - 1) * 24}"
             driver.get(url_pagina)
-            time.sleep(5)
-            soup = BeautifulSoup(driver.page_source, "html.parser")
+            time.sleep(3)
 
+            # Espera explícita per assegurar el carregament dels productes
+            wait = WebDriverWait(driver, 20)
+            try:
+                wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".product-card-list__item")))
+            except:
+                print("⚠️ Alguns productes no s'han carregat completament.")
+
+            # Scroll incremental per carregar contingut dinàmic
+            print("📜 Realitzant scroll incremental...")
+            step = 500
+            scroll_position = 0
+            max_height = driver.execute_script("return document.body.scrollHeight")
+            while scroll_position < max_height:
+                driver.execute_script(f"window.scrollTo(0, {scroll_position});")
+                time.sleep(2)
+                scroll_position += step
+                max_height = driver.execute_script("return document.body.scrollHeight")
+            print("📜 Scroll completat!")
+
+            soup = BeautifulSoup(driver.page_source, "html.parser")
             contenidor = soup.select_one("#app > div > main > div.plp-food-view__main > div.plp-food-view__container")
             if not contenidor:
                 print("❌ Contenidor principal no trobat")
@@ -54,13 +69,22 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
 
             for li in target_li:
                 try:
-                    parent = li.select_one(".product-card__parent") or li.select_one(".product-card-list__lazy-card")
-                    if not parent:
-                        raise Exception("Producte sense contenidor .product-card__parent")
+                    print("🖨️ Debugging HTML del producte:")
+                    print(li.prettify())  # Imprimeix l'estructura HTML completa del producte
 
-                    cataleg = parent.get("catalog", "")
-
+                    # Comprovar si l'element conté informació mínima
                     titol_tag = li.select_one(".product-card__title-link")
+                    if not titol_tag:
+                        print("⚠️ Producte sense informació útil. Saltant...")
+                        continue
+
+                    parent = li.select_one(".product-card__parent") or li.select_one(".product-card-list__lazy-card")
+                    cataleg = parent.get("catalog", "") if parent else "Desconegut"
+
+                    # Verifica si el producte és patrocinat
+                    patrocinat_tag = li.select_one(".product-card__sponsored-text")
+                    patrocinat = patrocinat_tag.get_text(strip=True) if patrocinat_tag else "No patrocinado"
+
                     descripcio = titol_tag.get_text(strip=True) if titol_tag else ""
 
                     preu_tag = li.select_one(".product-card__price")
@@ -69,12 +93,11 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
                     preu_kg_tag = li.select_one(".product-card__price-per-unit")
                     preu_kg = preu_kg_tag.get_text(strip=True) if preu_kg_tag else ""
 
-                    promo_tag = li.select_one(".badge__name")
-                    promocio = promo_tag.get_text(strip=True) if promo_tag else ""
+                    # URL del producte (link de la web)
+                    media_link_tag = li.select_one(".product-card__media-link")
+                    url_producte = f"https://www.carrefour.es{media_link_tag.get('href')}" if media_link_tag else ""
 
-                    href = titol_tag.get("href") if titol_tag else ""
-                    url_producte = f"https://www.carrefour.es{href}" if href else ""
-
+                    # Imatge
                     img_tag = li.select_one("img")
                     url_imatge = img_tag.get("src") if img_tag else ""
                     nom_imatge = url_imatge.split("/")[-1] if url_imatge else ""
@@ -91,11 +114,11 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
 
                     productes.append({
                         "Cataleg": cataleg,
+                        "Patrocinat": patrocinat,
                         "Descripció": descripcio,
                         "Preu unitari": preu_unitari,
                         "Preu/kg": preu_kg,
-                        "Promoció": promocio,
-                        "URL": url_producte,
+                        "URL": url_producte,  # Afegit al DataFrame
                         "Imatge": url_imatge
                     })
                     productes_llegits += 1
@@ -118,7 +141,7 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
     # Guarda DataFrame
     df = pd.DataFrame(productes)
     os.makedirs("data_scraped", exist_ok=True)
-    df.to_csv("data_scraped/mercadona_food_products.csv", index=False)
+    df.to_csv("data_scraped/carrefour_products.csv", index=False)
 
     print(f"\n✅ Total productes capturats: {len(productes)}")
     print(f"⚠️ Total productes amb error: {errors}")
@@ -126,6 +149,6 @@ def scrape_categoria_carrefour(url_categoria: str) -> pd.DataFrame:
     return df
 
 
-
+# Exemple d'ús
 url = "https://www.carrefour.es/supermercado/productos-frescos/cat20002/c"
 df = scrape_categoria_carrefour(url)
