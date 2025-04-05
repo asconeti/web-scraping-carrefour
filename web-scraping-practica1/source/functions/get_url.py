@@ -68,7 +68,7 @@ def get_url_categories():
         print(f"✅ Categories trobades: {len(resultats)}")
 
     except Exception as e:
-        print("⚠️ Error:", e)
+        print(f"⚠️ Error inesperat, reiniciant en l'última pàgina ({pagina}): {e}")
 
     finally:
         driver.quit()

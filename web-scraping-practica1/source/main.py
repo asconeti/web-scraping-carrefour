@@ -1,7 +1,11 @@
 
-import pandas as pd
-import os
+
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
 import time
+Cimport pandas as pd
 
 from functions.get_url import get_url_categories
 from prova import inicialitzar_driver, capta_url_seguent_pagina, scrape_categoria_carrefour, guardar_html_debug
@@ -25,23 +29,18 @@ if __name__ == '__main__':
 
 
     # Inicia el bucle iteratiu extern
-    pagina = 1  # Primera ejecución
+    pagina = 1  # Primera execució
     url = "https://www.carrefour.es/supermercado/productos-frescos/cat20002/c"
     productes_totals = [] 
-
+    response_delay = 1
+    
     while pagina != 42:
         if os.path.exists("ultima_pagina_visitada.txt"):
             with open("ultima_pagina_visitada.txt", "r", encoding="utf-8") as file:
                 lines = [line.rstrip() for line in file]
-            pagina = int(lines[0])  # Última página registrada
+            pagina = int(lines[0])  # Última pàgina registrada
             url = lines[1]  # Última URL capturada
-            time.sleep(60)
-        else:
-            pagina = 1  # Primera ejecución
-            url = "https://www.carrefour.es/supermercado/productos-frescos/cat20002/c"
-
-        print(pagina)
-        print(url)
+            time.sleep(10*response_delay)
 
         try:
             while url:
@@ -76,20 +75,20 @@ if __name__ == '__main__':
                 print("📜 Scroll completat!")
 
                 # Escrapejar productes de la pàgina actual
-                productes = scrape_categoria_carrefour(driver, pagina)
+                productes = scrape_categoria_carrefour(driver, pagina, url)
                 productes_totals.extend(productes)
 
                 # Obtenir la URL de la següent pàgina
                 soup = BeautifulSoup(driver.page_source, "html.parser")
                 time.sleep(3)  # Una altra petita pausa per assegurar que el DOM és estable
                 response_delay = time.time() - t0
-                print(response_delay)
                 url = capta_url_seguent_pagina(soup)
                 pagina += 1  # Incrementem el número de pàgina
 
                 # Tanca el driver abans de continuar
                 driver.quit()
                 print("🌐 Connexió amb el servidor interrompuda per evitar detecció.")
+                time.sleep(response_delay)
         except:
             print(f"⚠️ Error inesperat, reiniciant en l'última pàgina ({pagina}): {Exception}")
     

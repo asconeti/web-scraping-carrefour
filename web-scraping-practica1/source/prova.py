@@ -39,14 +39,14 @@ def capta_url_seguent_pagina(soup) -> str:
         return None
     
 
-def scrape_categoria_carrefour(driver, pagina) -> list:
+def scrape_categoria_carrefour(driver, pagina, url) -> list:
     """
     Escrapeja productes de la pàgina actual utilitzant el driver Selenium.
     Retorna una llista de productes capturats.
     """
     productes = []
     soup = BeautifulSoup(driver.page_source, "html.parser")
-    guardar_html_debug(soup, pagina)  # Guarda l'HTML complet per debugging
+    guardar_html_debug(soup, pagina, url)  # Guarda l'HTML complet per debugging
 
     target_li = soup.select("li.product-card-list__item")
 
@@ -90,79 +90,83 @@ def scrape_categoria_carrefour(driver, pagina) -> list:
     return productes
 
 
-def guardar_html_debug(soup, pagina):
+def guardar_html_debug(soup, pagina, url):
     """
     Guarda l'HTML complet de la pàgina actual a un fitxer per a debugging.
     """
-    os.makedirs("debug_html", exist_ok=True)  # Crea la carpeta si no existeix
-    fitxer_path = f"debug_html/pagina_{pagina}.html"
+    os.makedirs("debug_html_1", exist_ok=True)  # Crea la carpeta si no existeix
+    fitxer_path = f"debug_html_1/pagina_{pagina}.html"
     with open(fitxer_path, "w", encoding="utf-8") as fitxer:
         fitxer.write(soup.prettify())
     print(f"📝 HTML de la pàgina {pagina} guardat a {fitxer_path}")
+    
     with open("ultima_pagina_visitada.txt", "w", encoding="utf-8") as file:
         file.write(f"{pagina}\n{url}")
+
         
-# Inicia el bucle iteratiu extern
-url = "https://www.carrefour.es/supermercado/productos-frescos/cat20002/c"
-productes_totals = []
-pagina = 1  # Pàgina inicial
+if __name__ == "__main__":
 
-try:
-    while url:
-        print(f"🔎 Processant URL: {url}")
+    # Inicia el bucle iteratiu extern
+    url = "https://www.carrefour.es/supermercado/productos-frescos/cat20002/c"
+    productes_totals = []
+    pagina = 1  # Pàgina inicial
 
-        # Inicialitza un nou driver per cada pàgina
-        driver = inicialitzar_driver()
-        driver.get(url)
-        time.sleep(5)  # Espera inicial abans d'interactuar amb la pàgina
-
-        # Espera que la pàgina es carregui completament
-        wait = WebDriverWait(driver, 20)
-        try:
-            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".product-card-list__item")))
-        except:
-            print("⚠️ Alguns productes no s'han carregat completament.")
-
-        # Pausa addicional abans de continuar
-        time.sleep(5)  # Aquí afegim una espera extra per assegurar que la pàgina ha acabat de carregar
-
-        # Scroll incremental per carregar tot el contingut dinàmic
-        print("📜 Realitzant scroll incremental...")
-        step = 500
-        scroll_position = 0
-        max_height = driver.execute_script("return document.body.scrollHeight")
-        while scroll_position < max_height:
-            driver.execute_script(f"window.scrollTo(0, {scroll_position});")
-            time.sleep(2)
-            scroll_position += step
-            max_height = driver.execute_script("return document.body.scrollHeight")
-        print("📜 Scroll completat!")
-
-        # Escrapejar productes de la pàgina actual
-        productes = scrape_categoria_carrefour(driver, pagina)
-        productes_totals.extend(productes)
-
-        # Obtenir la URL de la següent pàgina
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        time.sleep(3)  # Una altra petita pausa per assegurar que el DOM és estable
-        url = capta_url_seguent_pagina(soup)
-        pagina += 1  # Incrementem el número de pàgina
-
-        # Tanca el driver abans de continuar
-        driver.quit()
-        print("🌐 Connexió amb el servidor interrompuda per evitar detecció.")
-
-finally:
-    print("✅ Finalització de l'scraping.")
-    # Assegurem que el driver es tanca si hi ha errors
     try:
-        driver.quit()
-    except:
-        pass
+        while url:
+            print(f"🔎 Processant URL: {url}")
 
-# Guarda DataFrame
-os.makedirs("data_scraped", exist_ok=True)
-df = pd.DataFrame(productes_totals)
-df.to_csv("data_scraped/carrefour_products.csv", index=False)
+            # Inicialitza un nou driver per cada pàgina
+            driver = inicialitzar_driver()
+            driver.get(url)
+            time.sleep(5)  # Espera inicial abans d'interactuar amb la pàgina
 
-print(f"\n✅ Scraping complet: {len(productes_totals)} productes capturats.")
+            # Espera que la pàgina es carregui completament
+            wait = WebDriverWait(driver, 20)
+            try:
+                wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".product-card-list__item")))
+            except:
+                print("⚠️ Alguns productes no s'han carregat completament.")
+
+            # Pausa addicional abans de continuar
+            time.sleep(5)  # Aquí afegim una espera extra per assegurar que la pàgina ha acabat de carregar
+
+            # Scroll incremental per carregar tot el contingut dinàmic
+            print("📜 Realitzant scroll incremental...")
+            step = 500
+            scroll_position = 0
+            max_height = driver.execute_script("return document.body.scrollHeight")
+            while scroll_position < max_height:
+                driver.execute_script(f"window.scrollTo(0, {scroll_position});")
+                time.sleep(2)
+                scroll_position += step
+                max_height = driver.execute_script("return document.body.scrollHeight")
+            print("📜 Scroll completat!")
+
+            # Escrapejar productes de la pàgina actual
+            productes = scrape_categoria_carrefour(driver, pagina, url)
+            productes_totals.extend(productes)
+
+            # Obtenir la URL de la següent pàgina
+            soup = BeautifulSoup(driver.page_source, "html.parser")
+            time.sleep(3)  # Una altra petita pausa per assegurar que el DOM és estable
+            url = capta_url_seguent_pagina(soup)
+            pagina += 1  # Incrementem el número de pàgina
+
+            # Tanca el driver abans de continuar
+            driver.quit()
+            print("🌐 Connexió amb el servidor interrompuda per evitar detecció.")
+
+    finally:
+        print("✅ Finalització de l'scraping.")
+        # Assegurem que el driver es tanca si hi ha errors
+        try:
+            driver.quit()
+        except:
+            pass
+
+    # Guarda DataFrame
+    os.makedirs("data_scraped", exist_ok=True)
+    df = pd.DataFrame(productes_totals)
+    df.to_csv("data_scraped/carrefour_products.csv", index=False)
+
+    print(f"\n✅ Scraping complet: {len(productes_totals)} productes capturats.")
