@@ -2,7 +2,7 @@
 import pandas as pd
 import os
 
-from funcions_proba_DEFINITIU import  get_categories_pop, scrape_categoria
+from funcions_jordi import  get_categories_pop, scrape_categoria, transforma_html_a_csv
 
 
 if __name__ == '__main__':
@@ -59,7 +59,10 @@ if __name__ == '__main__':
             total_productes_no_processats += productes_categoria
             print(f"⚠️ Error processant la categoria '{categoria}': {e}")
 
-    # Missatge final amb el resultat del processament
-    print(f"🔢 Total de productes processats: {total_productes_processats}") # REVISAR
-    print(f"🔢 Total de productes no processats: {total_productes_no_processats}") # REVISAR
+    
+# Crida a la funció transforma_html_a_csv per transformar els fitxers HTML en CSV
+#print("Transformant fitxers HTML a CSV...")
+transforma_html_a_csv()
+
+
 

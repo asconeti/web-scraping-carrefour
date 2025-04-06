@@ -13,6 +13,8 @@ import pandas as pd
 import random
 import requests
 from datetime import datetime
+import re
+import json
 
 
 def numero_productes_i_pagines(soup):
@@ -178,16 +180,20 @@ def capta_url_seguent_pagina(soup) -> str:
         return None
 
 
-
-def guardar_html_debug(soup, pagina):
+##### MODIFICACIONS  ################
+def guardar_html_debug(soup, categoria, pagina):
     """
-    Guarda l'HTML complet de la pàgina actual a un fitxer per a debugging.
+    Guarda l'HTML complet de la pàgina actual a un fitxer per a debugging
+    i per extreure altra informació del fitxer json incrustat a la pàgina.
+    Paràmetres:
+        soup (BeautifulSoup): L'objecte BeautifulSoup que conté l'HTML de la pàgina.
+        pagina (int): El número de pàgina actual.
     """
     os.makedirs("debug_html", exist_ok=True)  # Crea la carpeta si no existeix
-    fitxer_path = f"debug_html/pagina_{pagina}.html"
+    fitxer_path = f"debug_html/pagina_{categoria}_{pagina}.html"
     with open(fitxer_path, "w", encoding="utf-8") as fitxer:
         fitxer.write(soup.prettify())
-    print(f"📝 HTML de la pàgina {pagina} guardat a {fitxer_path}")
+    print(f"📝 HTML de la categoria {categoria} pàgina {pagina} guardat a {fitxer_path}")
    
 
 
@@ -198,7 +204,7 @@ def scrape_pagina_pop(driver, pagina, categoria) -> list:
     """
     productes = []
     soup = BeautifulSoup(driver.page_source, "html.parser")  # Carreguem l'arbre jeràrquic a "soup"
-    guardar_html_debug(soup, pagina)  # Guarda l'HTML complet per debugging
+    guardar_html_debug(soup, categoria, pagina)  # Guarda l'HTML complet per debugging
 
     target_li = soup.select("li.product-card-list__item")  # Identifiquem l'element objectiu
 
@@ -227,24 +233,18 @@ def scrape_pagina_pop(driver, pagina, categoria) -> list:
             img_tag = li.select_one("img")
             url_imatge = img_tag.get("src") if img_tag else ""
 
+
             # Camps nous
-            badge_tag = li.select_one(".badge_name")
-            promocio = badge_tag.get_text(strip=True) if badge_tag else ""
-
-            preu_strikethrough_tag = li.select_one(".app_strikethrough_price")
-            preu_unitari_pre_descompte = preu_strikethrough_tag.get_text(strip=True) if preu_strikethrough_tag else ""
-            preu_kg_pre_descompte = preu_strikethrough_tag.get_text(strip=True) if preu_strikethrough_tag else ""
-
             disponibilitat_tag = li.select_one(".add-to-cart-button__button--sold-out")
             disponibilitat = disponibilitat_tag.get_text(strip=True) if disponibilitat_tag else "Disponible"
 
-            caracteristiques_tags = li.select(".product-card__item-info-tag")
-            caracteristiques = [tag.get_text(strip=True) for tag in caracteristiques_tags]
-
             hora_de_captura = datetime.now().strftime("%H:%M:%S")  # Hora, minut, segon de captura
+
+            data_de_captura = datetime.now().strftime("%d-%m-%Y")  # Data de captura
 
             # Afegim info producte a la llista "productes"
             productes.append({
+                "Data de captura": data_de_captura,
                 "Hora de captura": hora_de_captura,
                 "Categoria": categoria,  # Categoria a la qual pertany
                 "Descripció": descripcio,
@@ -252,11 +252,7 @@ def scrape_pagina_pop(driver, pagina, categoria) -> list:
                 "Preu/kg": preu_kg,
                 "URL": url_producte,
                 "Imatge": url_imatge,
-                "Promoció": promocio,
-                "Preu unitari pre-descompte": preu_unitari_pre_descompte,
-                "Preu/kg pre-descompte": preu_kg_pre_descompte,
                 "Disponibilitat": disponibilitat,
-                "Característiques": caracteristiques
             })
 
 
@@ -366,3 +362,86 @@ def scrape_categoria(url, categoria, productes_categoria, pagines_categoria):
 
 ########################################################################################################
 
+###############       NOVETATS DE LA SEGONA PART                ########################################
+# TRASNSFORMACIÓ DE JSON A CSV DELS FITXERS HTML DESATS A LA CARPETA debug_html
+# Aquesta part del codi transforma els fitxers HTML desats a la carpeta debug_html en fitxers CSV
+# amb les dades de la variable impressions.
+
+def transforma_html_a_csv(carpeta_html="debug_html", carpeta_resultats="resultats_script_json"):
+        """
+        Processa tots els fitxers HTML dins d'una carpeta i extreu les dades de la variable 
+        JavaScript window["impressions"], desant-les en fitxers CSV dins una carpeta de resultats.
+
+        Paràmetres:
+            carpeta_html (str): Ruta on es troben els fitxers HTML.
+            carpeta_resultats (str): Ruta on desar els fitxers CSV.
+        """
+        os.makedirs(carpeta_resultats, exist_ok=True)
+
+        pattern = r'window\["impressions"\]\s*=\s*(\[\{.*?\}\]);'
+
+        for fitxer in os.listdir(carpeta_html):
+            if fitxer.endswith(".html"):
+                ruta_html = os.path.join(carpeta_html, fitxer)
+                nom_base = os.path.splitext(fitxer)[0]
+                ruta_csv = os.path.join(carpeta_resultats, f"{nom_base}.csv")
+
+                print(f"🔍 Processant: {ruta_html}")
+                with open(ruta_html, "r", encoding="utf-8") as f:
+                    soup = BeautifulSoup(f, "html.parser")
+
+                scripts = soup.find_all("script")
+                impressions_data = None
+
+                for script in scripts:
+                    if script.string:
+                        match = re.search(pattern, script.string, re.DOTALL)
+                        if match:
+                            impressions_data = match.group(1)
+                            break
+
+                if impressions_data:
+                    try:
+                        productes = json.loads(impressions_data)
+                        df = pd.DataFrame(productes)
+                        df.to_csv(ruta_csv, index=False)
+                        print(f"✅ Desat a: {ruta_csv}")
+                    except json.JSONDecodeError as e:
+                        print(f"❌ Error analitzant JSON a {fitxer}: {e}")
+                else:
+                    print(f"⚠️ No s'ha trobat la variable window[\"impressions\"] a {fitxer}")
+
+
+
+
+# NO UTILITZADA - NO FUNCIONA##
+# Funció per descarregar imatges a partir d'un CSV
+
+def descarregar_i_guardar_imatge(url, carpeta_destinacio, nom_fitxer):
+    """
+    Descarrega una imatge des d'una URL i la guarda a la carpeta especificada.
+    """
+    try:
+        # Crear la carpeta si no existeix
+        os.makedirs(carpeta_destinacio, exist_ok=True)
+
+        # Ruta completa del fitxer
+        ruta_destinacio = os.path.join(carpeta_destinacio, nom_fitxer)
+
+        # Headers per evitar bloqueigs
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Referer": "https://www.carrefour.es/"
+        }
+
+        # Descarreguem la imatge
+        resposta = requests.get(url, headers=headers, timeout=10)
+
+        if resposta.status_code == 200:
+            with open(ruta_destinacio, "wb") as f:
+                f.write(resposta.content)
+            print(f"✅ Imatge desada: {nom_fitxer}")
+        else:
+            print(f"❌ Error {resposta.status_code} amb: {url}")
+    except Exception as e:
+        print(f"⚠️ Error descarregant la imatge {url}: {e}")

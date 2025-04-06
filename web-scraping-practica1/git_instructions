@@ -3,5 +3,5 @@
 # git branch
 # git status
 # git add .
-# git commit -m "Guardem productes primera Url..."
+# git commit -m "loop per totes les categories, número de productes i pagines en entrada, falte poder reiniciar i fer el merge..."
 # git push origin jordi
