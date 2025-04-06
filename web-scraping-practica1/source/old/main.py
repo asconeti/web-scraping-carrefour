@@ -5,10 +5,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import time
-Cimport pandas as pd
+import os
+import pandas as pd
 
 from functions.get_url import get_url_categories
-from prova import inicialitzar_driver, capta_url_seguent_pagina, scrape_categoria_carrefour, guardar_html_debug
+from functions.inicialitzar_driver import inicialitzar_driver
+from functions.capta_url_seguent_pagina import capta_url_seguent_pagina
+from functions.scrape_categoria_carrefour import scrape_categoria_carrefour
 
 # Importem la funció get_category_url del mòdul functions
 if __name__ == '__main__':
@@ -34,7 +37,7 @@ if __name__ == '__main__':
     productes_totals = [] 
     response_delay = 1
     
-    while pagina != 42:
+    while pagina != 43:
         if os.path.exists("ultima_pagina_visitada.txt"):
             with open("ultima_pagina_visitada.txt", "r", encoding="utf-8") as file:
                 lines = [line.rstrip() for line in file]
@@ -92,7 +95,7 @@ if __name__ == '__main__':
         except:
             print(f"⚠️ Error inesperat, reiniciant en l'última pàgina ({pagina}): {Exception}")
     
-    if pagina == 42:
+    if pagina == 43:
         print("✅ Finalització de l'scraping.")
         # Assegurem que el driver es tanca si hi ha errors
         try:
@@ -103,6 +106,7 @@ if __name__ == '__main__':
     # Guarda DataFrame
     os.makedirs("data_scraped", exist_ok=True)
     df = pd.DataFrame(productes_totals)
+    print(len(df), df.size)
     df.to_csv("data_scraped/carrefour_products.csv", index=False)
 
     print(f"\n✅ Scraping complet: {len(productes_totals)} productes capturats.")
