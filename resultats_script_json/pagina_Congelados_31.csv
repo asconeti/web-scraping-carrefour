@@ -1,0 +1,3 @@
+currency,item_list_name,index,item_name,item_id,item_ean,price,item_brand,item_category,quantity,item_sms,item_internal_id,item_provider,item_provider_type,item_shipping
+EUR,catalog,1,berenjena-rebozada-maheso-400-g,574080,8410705003169,3.99,maheso,cat21449123-congelados,1,574080,vc4aecomm-574080,carrefour,carrefour,home_delivery|drive
+EUR,catalog,2,preparado-alimenticio-vegetal-congelado-con-sabor-a-pollo-valsoia-200-g,575372,8006040252524,5.29,valsoia,cat21449123-congelados,1,575372,vc4aecomm-575372,carrefour,carrefour,home_delivery|drive
