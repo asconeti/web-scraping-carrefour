@@ -1,0 +1,66 @@
+
+import pandas as pd
+import os
+
+from functions import  get_categories_pop, scrape_categoria, transforma_html_a_csv
+
+
+if __name__ == '__main__':
+
+   
+    #  Utilitzem la funció get_category_url
+    print("Executant Extracció URL categories: Anàlisi de la pàgina font")
+
+    # Guardem les categories amb la seva URL inicial, el número de productes i pàgines a un fitxer CSV
+    categories_dict = get_categories_pop()
+
+
+    # 📊 Convertim el diccionari en un DataFrame
+    df = pd.DataFrame.from_dict(categories_dict, orient="index").reset_index()
+    df.rename(columns={"index": "Nom de categoria"}, inplace=True)
+
+    # Ruta del fitxer CSV
+    output_path = 'dataset/categories_scraped.csv'
+
+    # 💾 Assegurem-nos que la carpeta existeix
+    output_dir = os.path.dirname(output_path)  # Obtenim la carpeta
+    if not os.path.exists(output_dir):  # Comprovem si no existeix
+        os.makedirs(output_dir)  # Creem la carpeta
+        print(f"📁 Carpeta creada: {output_dir}")
+
+    # Guardem el DataFrame en un fitxer CSV
+    df.to_csv(output_path, index=False, encoding='utf-8')
+    
+    print(f"✅ Dades desades a {output_path}")
+    
+
+    # Inicialitzem les variables de suma
+    total_productes = df["Número de productes"].sum()  # Suma total de productes
+    total_productes_processats = 0
+    total_productes_no_processats = 0
+
+    print(f"🔢 Total de productes identificats: {total_productes}")
+
+    # Bucle per iterar per cada categoria i executar scrape_categoria
+    for _, row in df.iterrows():
+        categoria = row["Nom de categoria"]
+        url = row["URL"]
+        productes_categoria = row["Número de productes"]
+        pagines_categoria = row["Número de pàgines"]
+
+        print(f"🛒 Processant categoria: {categoria}")
+        
+        try:
+            # Crida a la funció scrape_categoria
+            productes_processats = scrape_categoria(url, categoria, productes_categoria, pagines_categoria)
+            print(f"✅ Categoria '{categoria}' processada ")
+        except Exception as e:
+            total_productes_no_processats += productes_categoria
+            print(f"⚠️ Error processant la categoria '{categoria}': {e}")
+
+    
+# Crida a la funció transforma_html_a_csv per transformar els fitxers HTML en CSV
+#print("Transformant fitxers HTML a CSV...")
+transforma_html_a_csv()
+
+
